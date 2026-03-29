@@ -2,6 +2,8 @@ import type { Plugin } from "@opencode-ai/plugin"
 import { handleIdleEvent, handleUserMessage } from "./idle-handler.js"
 
 export const AutoContinuePlugin: Plugin = async (input) => {
+  input.client.app.log({ body: { service: "auto-continue", level: "info", message: "plugin loaded" } })
+
   return {
     event: ({ event }) => handleIdleEvent({ event }, input.client),
     "chat.message": (messageInput) => {

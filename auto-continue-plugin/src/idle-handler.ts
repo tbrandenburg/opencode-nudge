@@ -6,9 +6,15 @@ import {
 } from "./types.js"
 import { getOrCreateState, canContinue, recordContinuation } from "./throttle.js"
 
+type Client = PluginInput["client"]
+
+function log(client: Client, level: "debug" | "info" | "warn" | "error", message: string, extra?: Record<string, unknown>): void {
+  client.app.log({ body: { service: "auto-continue", level, message, extra } })
+}
+
 export async function handleIdleEvent(
   { event }: { event: Event },
-  client: PluginInput["client"]
+  client: Client
 ): Promise<void> {
   if (event.type !== "session.idle") return
 
@@ -16,17 +22,18 @@ export async function handleIdleEvent(
   const state = getOrCreateState(sessionID)
   const now = Date.now()
 
-  // Record when we first saw this idle state
   if (state.lastIdleSeen === 0) {
     state.lastIdleSeen = now
-    return  // Not idle long enough yet — wait for next event
+    log(client, "debug", "idle detected, waiting for threshold", { sessionID })
+    return
   }
 
-  // Check if idle threshold has been reached
   if (now - state.lastIdleSeen < IDLE_THRESHOLD) return
 
-  // Check throttle
-  if (!canContinue(state, now)) return
+  if (!canContinue(state, now)) {
+    log(client, "debug", "idle threshold reached but throttled", { sessionID })
+    return
+  }
 
   try {
     await client.session.promptAsync({
@@ -34,9 +41,10 @@ export async function handleIdleEvent(
       body: { parts: [{ type: "text", text: CONTINUE_PROMPT }] },
     })
     recordContinuation(state, now)
-    state.lastIdleSeen = 0  // Reset: next idle event starts a fresh window
+    state.lastIdleSeen = 0
+    log(client, "info", "continuation prompt injected", { sessionID })
   } catch (err) {
-    console.error("[auto-continue] Failed to inject continuation prompt:", err)
+    log(client, "error", "failed to inject continuation prompt", { sessionID, err: String(err) })
   }
 }
 

@@ -3,12 +3,11 @@ import { handleIdleEvent, handleUserMessage } from "./idle-handler.js"
 import { sessionStates, IDLE_THRESHOLD } from "./types.js"
 import { getOrCreateState } from "./throttle.js"
 
-// Minimal mock client — only the method we use
+// Minimal mock client — only the methods we use
 function makeClient(promptFn = mock(() => Promise.resolve())) {
   return {
-    session: {
-      promptAsync: promptFn,
-    },
+    app: { log: mock(() => undefined) },
+    session: { promptAsync: promptFn },
   } as any
 }
 
