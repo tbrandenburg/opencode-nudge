@@ -22,13 +22,23 @@ export async function handleIdleEvent(
   const state = getOrCreateState(sessionID)
   const now = Date.now()
 
-  if (state.lastIdleSeen === 0) {
-    state.lastIdleSeen = now
-    log(client, "debug", "idle detected, waiting for threshold", { sessionID })
-    return
+  // Single-phase: if we know when the last user message arrived, measure idle
+  // time from that point — one idle event is enough to trigger continuation.
+  // Two-phase fallback: when no user message is recorded, wait for a second
+  // idle event separated by at least IDLE_THRESHOLD from the first.
+  if (state.lastUserMessage > 0) {
+    if (now - state.lastUserMessage < IDLE_THRESHOLD) {
+      log(client, "debug", "idle detected, waiting for threshold", { sessionID })
+      return
+    }
+  } else {
+    if (state.lastIdleSeen === 0) {
+      state.lastIdleSeen = now
+      log(client, "debug", "idle detected, waiting for threshold", { sessionID })
+      return
+    }
+    if (now - state.lastIdleSeen < IDLE_THRESHOLD) return
   }
-
-  if (now - state.lastIdleSeen < IDLE_THRESHOLD) return
 
   if (!canContinue(state, now)) {
     log(client, "debug", "idle threshold reached but throttled", { sessionID })

@@ -15,7 +15,9 @@ const idleEvent = (sessionID: string) => ({
   event: { type: "session.idle" as const, properties: { sessionID } },
 })
 
-describe("handleIdleEvent", () => {
+// ─── two-phase path (no lastUserMessage recorded) ──────────────────────────
+
+describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
   beforeEach(() => sessionStates.clear())
 
   it("ignores non-idle events", async () => {
@@ -78,6 +80,44 @@ describe("handleIdleEvent", () => {
     await expect(handleIdleEvent(idleEvent("s5"), client as any)).resolves.toBeUndefined()
   })
 })
+
+// ─── single-phase path (lastUserMessage recorded via handleUserMessage) ────
+
+describe("handleIdleEvent — single-phase (lastUserMessage known)", () => {
+  beforeEach(() => sessionStates.clear())
+
+  it("does not prompt if threshold not yet elapsed since last user message", async () => {
+    const client = makeClient()
+    handleUserMessage({ sessionID: "p1" })
+    await handleIdleEvent(idleEvent("p1"), client as any)
+    expect(client.session.promptAsync).not.toHaveBeenCalled()
+  })
+
+  it("prompts on the first idle event when threshold has elapsed since last user message", async () => {
+    const promptFn = mock(() => Promise.resolve())
+    const client = makeClient(promptFn)
+    handleUserMessage({ sessionID: "p2" })
+    const state = getOrCreateState("p2")
+    // Backdate user message past the threshold
+    state.lastUserMessage = Date.now() - IDLE_THRESHOLD - 1000
+    await handleIdleEvent(idleEvent("p2"), client as any)
+    expect(promptFn).toHaveBeenCalledTimes(1)
+    const calls = promptFn.mock.calls as unknown as Array<[{ path: { id: string }; body: { parts: Array<{ text: string }> } }]>
+    expect(calls[0]![0]!.path.id).toBe("p2")
+  })
+
+  it("does not use two-phase lastIdleSeen when lastUserMessage is set", async () => {
+    const client = makeClient()
+    handleUserMessage({ sessionID: "p3" })
+    const state = getOrCreateState("p3")
+    state.lastUserMessage = Date.now() - IDLE_THRESHOLD - 1000
+    await handleIdleEvent(idleEvent("p3"), client as any)
+    // lastIdleSeen should remain 0 — the two-phase branch was never taken
+    expect(state.lastIdleSeen).toBe(0)
+  })
+})
+
+// ─── handleUserMessage ──────────────────────────────────────────────────────
 
 describe("handleUserMessage", () => {
   beforeEach(() => sessionStates.clear())
