@@ -1,0 +1,16 @@
+export interface SessionState {
+  lastContinuation: number  // ms timestamp of last auto-continue prompt (0 = never)
+  hourlyCount: number       // number of auto-continues issued in current hour window
+  hourStart: number         // ms timestamp marking start of current hour window
+  lastIdleSeen: number      // ms timestamp when session.idle was first observed (0 = not idle)
+  lastUserMessage: number   // ms timestamp of last incoming user message (0 = never)
+}
+
+export const IDLE_THRESHOLD = 5 * 60 * 1000        // 300,000ms — how long idle must be before prompting
+export const COOLDOWN_PERIOD = 10 * 60 * 1000      // 600,000ms — minimum gap between two auto-continues
+export const MAX_HOURLY_CONTINUES = 3              // hard cap on auto-continues per hour
+export const ONE_HOUR = 60 * 60 * 1000             // 3,600,000ms — rolling hour window size
+export const CONTINUE_PROMPT =
+  "Please assess if there's any additional work needed and continue if appropriate."
+
+export const sessionStates = new Map<string, SessionState>()
