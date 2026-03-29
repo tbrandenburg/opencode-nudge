@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "pre-push: running unit tests..."
+make test
+
+echo "pre-push: running e2e tests..."
+make test-e2e
+
+echo "pre-push: all checks passed."
