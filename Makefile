@@ -13,6 +13,7 @@ typecheck:
 test:
 	cd $(PLUGIN_DIR) && bun test src/throttle.test.ts src/idle-handler.test.ts
 
+# Must be run from repo root: createOpencode() inherits cwd to load .opencode/opencode.jsonc
 test-e2e:
 	cd $(PLUGIN_DIR) && bun test src/e2e.test.ts
 

@@ -1,7 +1,7 @@
 import type { Event } from "@opencode-ai/sdk"
 import type { PluginInput } from "@opencode-ai/plugin"
 import {
-  IDLE_THRESHOLD,
+  getIdleThreshold,
   CONTINUE_PROMPT,
 } from "./types.js"
 import { getOrCreateState, canContinue, recordContinuation } from "./throttle.js"
@@ -27,7 +27,7 @@ export async function handleIdleEvent(
   // Two-phase fallback: when no user message is recorded, wait for a second
   // idle event separated by at least IDLE_THRESHOLD from the first.
   if (state.lastUserMessage > 0) {
-    if (now - state.lastUserMessage < IDLE_THRESHOLD) {
+    if (now - state.lastUserMessage < getIdleThreshold()) {
       log(client, "debug", "idle detected, waiting for threshold", { sessionID })
       return
     }
@@ -37,7 +37,7 @@ export async function handleIdleEvent(
       log(client, "debug", "idle detected, waiting for threshold", { sessionID })
       return
     }
-    if (now - state.lastIdleSeen < IDLE_THRESHOLD) return
+    if (now - state.lastIdleSeen < getIdleThreshold()) return
   }
 
   if (!canContinue(state, now)) {

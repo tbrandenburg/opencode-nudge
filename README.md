@@ -55,7 +55,6 @@ every push.
 ## Docs
 
 - [Debugging plugins with OpenCode](docs/debugging-plugins.md)
-- [E2E testing definition](docs/e2e-testing-definition.md)
 
 ## License
 
