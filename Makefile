@@ -1,4 +1,4 @@
-.PHONY: install test test-e2e typecheck lint
+.PHONY: install build clean test test-e2e typecheck lint
 
 PLUGIN_DIR := auto-continue-plugin
 
@@ -6,6 +6,12 @@ install:
 	cd $(PLUGIN_DIR) && bun install
 	git config core.hooksPath hooks
 	chmod +x hooks/pre-push
+
+build:
+	cd $(PLUGIN_DIR) && bun run build
+
+clean:
+	rm -rf $(PLUGIN_DIR)/dist
 
 typecheck:
 	cd $(PLUGIN_DIR) && bunx tsc --noEmit
