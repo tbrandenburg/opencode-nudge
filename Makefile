@@ -82,31 +82,34 @@ publish-major: publish-check validate
 # Internal publishing logic
 publish-patch-internal:
 	@echo "🔧 Bumping patch version..."
-	cd $(PLUGIN_DIR) && npm version patch
+	cd $(PLUGIN_DIR) && npm version patch --no-git-tag-version
 	@$(MAKE) publish-internal
 
 publish-minor-internal:
 	@echo "🔧 Bumping minor version..."
-	cd $(PLUGIN_DIR) && npm version minor
+	cd $(PLUGIN_DIR) && npm version minor --no-git-tag-version
 	@$(MAKE) publish-internal
 
 publish-major-internal:
 	@echo "🔧 Bumping major version..."
-	cd $(PLUGIN_DIR) && npm version major
+	cd $(PLUGIN_DIR) && npm version major --no-git-tag-version
 	@$(MAKE) publish-internal
 
 publish-internal:
 	@cd $(PLUGIN_DIR) && \
 	NEW_VERSION=$$(node -p 'require("./package.json").version'); \
 	echo "📦 Publishing version $$NEW_VERSION..."; \
+	git add package.json; \
+	git commit -m "v$$NEW_VERSION"; \
+	git tag "v$$NEW_VERSION"; \
 	if [ -n "$$NPM_TOKEN" ]; then \
 		npm publish --access public "--//registry.npmjs.org/:_authToken=$$NPM_TOKEN"; \
 	else \
 		npm publish --access public; \
 	fi; \
-	echo "🏷️  Creating git tag..."; \
-	git push origin --tags; \
+	echo "📤 Pushing commits and tag..."; \
 	git push; \
+	git push origin --tags; \
 	echo "📋 Creating GitHub release..."; \
 	if command -v gh >/dev/null 2>&1; then \
 		gh release create "v$$NEW_VERSION" --title "v$$NEW_VERSION" --notes "Release v$$NEW_VERSION" --latest; \
