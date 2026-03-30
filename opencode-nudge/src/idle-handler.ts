@@ -9,7 +9,7 @@ import { getOrCreateState, canContinue, recordContinuation } from "./throttle.js
 type Client = PluginInput["client"]
 
 function log(client: Client, level: "debug" | "info" | "warn" | "error", message: string, extra?: Record<string, unknown>): void {
-  client.app.log({ body: { service: "auto-continue", level, message, extra } })
+  client.app.log({ body: { service: "opencode-nudge", level, message, extra } })
 }
 
 export async function handleIdleEvent(

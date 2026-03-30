@@ -1,8 +1,8 @@
 {
-  "name": "opencode-auto-continue",
+  "name": "opencode-nudge",
   "version": "0.1.0",
   "description": "OpenCode plugin that automatically sends a continue prompt when a session goes idle",
-  "keywords": ["opencode", "opencode-plugin", "auto-continue", "plugin"],
+  "keywords": ["opencode", "opencode-plugin", "nudge", "plugin"],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 # Debugging OpenCode Plugins
 
-Practical techniques discovered while building the `auto-continue` plugin.
+Practical techniques discovered while building the `opencode-nudge` plugin.
 
 ## Plugin registration
 

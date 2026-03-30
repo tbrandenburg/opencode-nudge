@@ -1,4 +1,4 @@
-# opencode-auto-continue
+# opencode-nudge
 
 An OpenCode plugin that nudges the AI to continue work after 5 minutes of session idle time.
 
@@ -9,7 +9,7 @@ Add to your `opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-auto-continue"]
+  "plugin": ["opencode-nudge"]
 }
 ```
 
@@ -18,13 +18,13 @@ OpenCode installs npm plugins automatically via Bun on startup.
 ## Installation (from source)
 
 1. Clone the [opencode-nudge](https://github.com/tbrandenburg/opencode-nudge) repo.
-2. Run `make install` from the repo root.
+2. Run `make install` from the repo root — this installs dependencies and builds the plugin.
 3. Register the plugin in your project's `.opencode/opencode.jsonc`:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["/absolute/path/to/opencode-nudge/auto-continue-plugin/src/index.ts"]
+  "plugin": ["/absolute/path/to/opencode-nudge/opencode-nudge/dist/index.js"]
 }
 ```
 

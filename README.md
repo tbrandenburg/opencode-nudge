@@ -26,7 +26,7 @@ The AI can then decide to keep working or conclude that everything is done.
 ```bash
 git clone https://github.com/tbrandenburg/opencode-nudge.git
 cd opencode-nudge
-make install        # installs dependencies and registers the git hooks
+make install        # installs dependencies, builds the plugin, and registers git hooks
 ```
 
 Then register the plugin in your project's `.opencode/opencode.jsonc`:
@@ -34,7 +34,7 @@ Then register the plugin in your project's `.opencode/opencode.jsonc`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["/absolute/path/to/opencode-nudge/auto-continue-plugin/src/index.ts"]
+  "plugin": ["/absolute/path/to/opencode-nudge/opencode-nudge/dist/index.js"]
 }
 ```
 
@@ -43,7 +43,7 @@ The path must be absolute.
 ## Development
 
 ```bash
-make install        # bun install + register git hooks
+make install        # bun install + build + register git hooks
 make test           # unit tests (~50 ms)
 make test-e2e       # full E2E against a real OpenCode session (~20 s, requires AI provider)
 make typecheck      # tsc --noEmit

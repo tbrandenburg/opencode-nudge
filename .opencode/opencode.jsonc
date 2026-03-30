@@ -2,6 +2,6 @@
   "$schema": "https://opencode.ai/config.json",
   // Local OpenCode config for opencode-nudge workspace
   "plugin": [
-    "/home/tom/workspace/ai/made/workspace/opencode-nudge/auto-continue-plugin/src/index.ts"
+    "/tmp/opencode-nudge/index.js"
   ]
 }

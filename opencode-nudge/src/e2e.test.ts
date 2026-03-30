@@ -1,5 +1,5 @@
 /**
- * E2E test for the auto-continue plugin.
+ * E2E test for the opencode-nudge plugin.
  *
  * What this test validates (all five E2E conditions):
  *
@@ -42,7 +42,7 @@ const E2E_TIMEOUT_MS = 60_000
 
 let opencode: Awaited<ReturnType<typeof createOpencode>>
 
-describe("auto-continue plugin — E2E", () => {
+describe("opencode-nudge plugin — E2E", () => {
   afterAll(() => {
     opencode?.server.close()
   })

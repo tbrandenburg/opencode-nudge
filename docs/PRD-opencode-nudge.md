@@ -1,4 +1,4 @@
-# PRD: OpenCode Auto-Continue Plugin
+# PRD: OpenCode Nudge Plugin
 
 ## Overview
 
@@ -42,7 +42,7 @@ A lightweight plugin that:
 - **Cooldown**: 10-minute minimum between continuation prompts
 - **Session Tracking**: In-memory per-session last-prompt timestamps
 - **Reset Logic**: Clear throttling on new user messages
-- **Circuit Breaker**: Max 3 auto-continues per hour
+- **Circuit Breaker**: Max 3 nudges per hour
 
 #### 4. User Message Detection
 - **Reset Trigger**: Any new user message resets the idle timer
@@ -53,7 +53,7 @@ A lightweight plugin that:
 
 ### Plugin Structure
 ```
-auto-continue-plugin/
+opencode-nudge/
 ├── src/
 │   ├── index.ts          # Plugin entry point (~20 lines)
 │   ├── idle-handler.ts   # Core idle logic (~25 lines)
@@ -67,7 +67,7 @@ auto-continue-plugin/
 
 #### OpenCode Plugin Interface
 ```typescript
-export default function autoContinuePlugin(ctx: PluginContext): PluginInterface {
+export default function opencodeNudgePlugin(ctx: PluginContext): PluginInterface {
   return {
     config: () => ({ tools: [], agents: [] }),
     event: handleSessionEvent,
@@ -109,7 +109,7 @@ Reset on next user message
 #### Session State (in-memory)
 ```typescript
 interface SessionState {
-  lastContinuation: number    // Timestamp of last auto-continue
+  lastContinuation: number    // Timestamp of last nudge
   hourlyCount: number        // Continues in current hour  
   hourStart: number         // Start of current hour window
   lastUserMessage: number   // Last user activity timestamp
@@ -131,7 +131,7 @@ const CONTINUE_PROMPT = "Please assess if there's any additional work needed and
 ### Functional Requirements
 - ✅ Triggers after exactly 5 minutes of idle time
 - ✅ Respects 10-minute cooldown between prompts
-- ✅ Limits to 3 auto-continues per hour max
+- ✅ Limits to 3 nudges per hour max
 - ✅ Resets throttling on new user messages
 - ✅ Works across different session types
 
@@ -151,7 +151,7 @@ const CONTINUE_PROMPT = "Please assess if there's any additional work needed and
 
 ### Plugin Entry Point
 ```typescript
-export default function autoContinuePlugin(ctx: PluginContext): PluginInterface {
+export default function opencodeNudgePlugin(ctx: PluginContext): PluginInterface {
   return {
     config: () => ({ tools: [], agents: [] }),
     event: (event) => handleIdleEvent(event, ctx),
@@ -188,7 +188,7 @@ async function handleIdleEvent(event: Event, ctx: PluginInput) {
 ### Built-in Constants (No Config UI Needed)
 - **Idle Threshold**: 5 minutes (300,000ms)
 - **Cooldown Period**: 10 minutes between prompts  
-- **Hourly Limit**: 3 auto-continues maximum
+- **Hourly Limit**: 3 nudges maximum
 - **Prompt Text**: Standard "continue if needed" message
 
 ### Future Configurability (Out of Scope)
