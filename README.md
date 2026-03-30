@@ -34,7 +34,7 @@ Then register the plugin in your project's `.opencode/opencode.jsonc`:
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["/absolute/path/to/opencode-nudge/opencode-nudge/dist/index.js"]
+  "plugin": ["opencode-nudge"] // Using the npm package, otherwise absolute path to dist/index.js
 }
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "opencode-nudge",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "OpenCode plugin that automatically sends a continue prompt when a session goes idle",
   "keywords": [
     "opencode",
