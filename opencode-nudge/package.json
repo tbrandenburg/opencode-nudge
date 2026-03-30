@@ -1,8 +1,13 @@
 {
   "name": "opencode-nudge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenCode plugin that automatically sends a continue prompt when a session goes idle",
-  "keywords": ["opencode", "opencode-plugin", "nudge", "plugin"],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "nudge",
+    "plugin"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +19,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "bunx tsc -p tsconfig.build.json",
     "prepublishOnly": "bun run build",

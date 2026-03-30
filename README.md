@@ -9,9 +9,9 @@ When you are using OpenCode interactively and the AI finishes a task, it is easy
 to forget to ask it to keep going. This plugin watches for idle sessions and
 injects the continuation prompt:
 
-> "Please assess if there's any additional work needed and continue if appropriate."
+> "Only continue if you were clearly interrupted mid-task (e.g. a tool call, loop, or step sequence was cut short). If so, resume — and consider a more interruption-resistant approach. Do NOT invent next steps or start new work just because it seems logical."
 
-The AI can then decide to keep working or conclude that everything is done.
+The AI can then decide to resume interrupted work or conclude that everything is done.
 
 ## Rate limits
 
@@ -44,9 +44,13 @@ The path must be absolute.
 
 ```bash
 make install        # bun install + build + register git hooks
+make build          # compile TypeScript to dist/
+make clean          # remove dist/
 make test           # unit tests (~50 ms)
 make test-e2e       # full E2E against a real OpenCode session (~20 s, requires AI provider)
 make typecheck      # tsc --noEmit
+make validate       # typecheck + test
+make publish        # interactive: bump version, publish to npm, push tag & GitHub release
 ```
 
 The pre-push hook runs `make test` and `make test-e2e` automatically before
