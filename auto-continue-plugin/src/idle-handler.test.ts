@@ -60,7 +60,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     const calls = promptFn.mock.calls as unknown as Array<[{ path: { id: string }; body: { parts: Array<{ text: string }> } }]>
     const call = calls[0]![0]!
     expect(call.path.id).toBe("s3")
-    expect(call.body.parts[0]!.text).toContain("continue if appropriate")
+    expect(call.body.parts[0]!.text).toContain("clearly interrupted mid-task")
   })
 
   it("resets lastIdleSeen to 0 after prompting", async () => {
