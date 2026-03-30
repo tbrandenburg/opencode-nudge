@@ -1,4 +1,4 @@
-.PHONY: install test test-e2e typecheck lint
+.PHONY: install build clean test test-e2e typecheck lint
 
 PLUGIN_DIR := auto-continue-plugin
 
@@ -7,12 +7,19 @@ install:
 	git config core.hooksPath hooks
 	chmod +x hooks/pre-push
 
+build:
+	cd $(PLUGIN_DIR) && bun run build
+
+clean:
+	rm -rf $(PLUGIN_DIR)/dist
+
 typecheck:
 	cd $(PLUGIN_DIR) && bunx tsc --noEmit
 
 test:
 	cd $(PLUGIN_DIR) && bun test src/throttle.test.ts src/idle-handler.test.ts
 
+# Must be run from repo root: createOpencode() inherits cwd to load .opencode/opencode.jsonc
 test-e2e:
 	cd $(PLUGIN_DIR) && bun test src/e2e.test.ts
 

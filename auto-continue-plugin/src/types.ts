@@ -6,10 +6,10 @@ export interface SessionState {
   lastUserMessage: number   // ms timestamp of last incoming user message (0 = never)
 }
 
-const envThreshold = process.env["OPENCODE_IDLE_THRESHOLD_MS"]
-export const IDLE_THRESHOLD = envThreshold !== undefined
-  ? parseInt(envThreshold, 10)
-  : 5 * 60 * 1000                                   // 300,000ms — how long idle must be before prompting
+export function getIdleThreshold(): number {
+  const env = process.env["OPENCODE_IDLE_THRESHOLD_MS"]
+  return env !== undefined ? parseInt(env, 10) : 5 * 60 * 1000  // 300,000ms default
+}
 export const COOLDOWN_PERIOD = 10 * 60 * 1000      // 600,000ms — minimum gap between two auto-continues
 export const MAX_HOURLY_CONTINUES = 3              // hard cap on auto-continues per hour
 export const ONE_HOUR = 60 * 60 * 1000             // 3,600,000ms — rolling hour window size

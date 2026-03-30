@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, mock } from "bun:test"
+import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test"
 import { handleIdleEvent, handleUserMessage } from "./idle-handler.js"
-import { sessionStates, IDLE_THRESHOLD } from "./types.js"
+import { sessionStates, getIdleThreshold } from "./types.js"
 import { getOrCreateState } from "./throttle.js"
 
 // Minimal mock client — only the methods we use
@@ -11,6 +11,23 @@ function makeClient(promptFn = mock(() => Promise.resolve())) {
   } as any
 }
 
+// Ensure unit tests are not affected by OPENCODE_IDLE_THRESHOLD_MS set in the
+// environment (e.g. leaked from an E2E run that sets the var to "0").
+let savedThresholdEnv: string | undefined
+function isolateThresholdEnv() {
+  beforeEach(() => {
+    savedThresholdEnv = process.env["OPENCODE_IDLE_THRESHOLD_MS"]
+    delete process.env["OPENCODE_IDLE_THRESHOLD_MS"]
+  })
+  afterEach(() => {
+    if (savedThresholdEnv !== undefined) {
+      process.env["OPENCODE_IDLE_THRESHOLD_MS"] = savedThresholdEnv
+    } else {
+      delete process.env["OPENCODE_IDLE_THRESHOLD_MS"]
+    }
+  })
+}
+
 const idleEvent = (sessionID: string) => ({
   event: { type: "session.idle" as const, properties: { sessionID } },
 })
@@ -18,6 +35,7 @@ const idleEvent = (sessionID: string) => ({
 // ─── two-phase path (no lastUserMessage recorded) ──────────────────────────
 
 describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
+  isolateThresholdEnv()
   beforeEach(() => sessionStates.clear())
 
   it("ignores non-idle events", async () => {
@@ -43,7 +61,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     await handleIdleEvent(idleEvent("s2"), client as any)
     const state = getOrCreateState("s2")
     // Manually backdate by less than threshold
-    state.lastIdleSeen = Date.now() - (IDLE_THRESHOLD - 1000)
+    state.lastIdleSeen = Date.now() - (getIdleThreshold() - 1000)
     await handleIdleEvent(idleEvent("s2"), client as any)
     expect(client.session.promptAsync).not.toHaveBeenCalled()
   })
@@ -54,7 +72,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     await handleIdleEvent(idleEvent("s3"), client as any)
     const state = getOrCreateState("s3")
     // Backdate past threshold
-    state.lastIdleSeen = Date.now() - IDLE_THRESHOLD - 1000
+    state.lastIdleSeen = Date.now() - getIdleThreshold() - 1000
     await handleIdleEvent(idleEvent("s3"), client as any)
     expect(promptFn).toHaveBeenCalledTimes(1)
     const calls = promptFn.mock.calls as unknown as Array<[{ path: { id: string }; body: { parts: Array<{ text: string }> } }]>
@@ -67,7 +85,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     const client = makeClient()
     await handleIdleEvent(idleEvent("s4"), client as any)
     const state = getOrCreateState("s4")
-    state.lastIdleSeen = Date.now() - IDLE_THRESHOLD - 1000
+    state.lastIdleSeen = Date.now() - getIdleThreshold() - 1000
     await handleIdleEvent(idleEvent("s4"), client as any)
     expect(state.lastIdleSeen).toBe(0)
   })
@@ -76,7 +94,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     const client = makeClient(mock(() => Promise.reject(new Error("network error"))))
     await handleIdleEvent(idleEvent("s5"), client as any)
     const state = getOrCreateState("s5")
-    state.lastIdleSeen = Date.now() - IDLE_THRESHOLD - 1000
+    state.lastIdleSeen = Date.now() - getIdleThreshold() - 1000
     await expect(handleIdleEvent(idleEvent("s5"), client as any)).resolves.toBeUndefined()
   })
 })
@@ -99,7 +117,7 @@ describe("handleIdleEvent — single-phase (lastUserMessage known)", () => {
     handleUserMessage({ sessionID: "p2" })
     const state = getOrCreateState("p2")
     // Backdate user message past the threshold
-    state.lastUserMessage = Date.now() - IDLE_THRESHOLD - 1000
+    state.lastUserMessage = Date.now() - getIdleThreshold() - 1000
     await handleIdleEvent(idleEvent("p2"), client as any)
     expect(promptFn).toHaveBeenCalledTimes(1)
     const calls = promptFn.mock.calls as unknown as Array<[{ path: { id: string }; body: { parts: Array<{ text: string }> } }]>
@@ -110,7 +128,7 @@ describe("handleIdleEvent — single-phase (lastUserMessage known)", () => {
     const client = makeClient()
     handleUserMessage({ sessionID: "p3" })
     const state = getOrCreateState("p3")
-    state.lastUserMessage = Date.now() - IDLE_THRESHOLD - 1000
+    state.lastUserMessage = Date.now() - getIdleThreshold() - 1000
     await handleIdleEvent(idleEvent("p3"), client as any)
     // lastIdleSeen should remain 0 — the two-phase branch was never taken
     expect(state.lastIdleSeen).toBe(0)
