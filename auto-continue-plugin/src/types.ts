@@ -14,6 +14,6 @@ export const COOLDOWN_PERIOD = 10 * 60 * 1000      // 600,000ms — minimum gap 
 export const MAX_HOURLY_CONTINUES = 3              // hard cap on auto-continues per hour
 export const ONE_HOUR = 60 * 60 * 1000             // 3,600,000ms — rolling hour window size
 export const CONTINUE_PROMPT =
-  "Please assess if there's any additional work needed and continue if appropriate."
+  "Only continue if you were clearly interrupted mid-task (e.g. a tool call, loop, or step sequence was cut short). If so, resume — and consider a more interruption-resistant approach. Do NOT invent next steps or start new work just because it seems logical."
 
 export const sessionStates = new Map<string, SessionState>()
