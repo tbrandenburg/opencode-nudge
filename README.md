@@ -3,6 +3,10 @@
 An OpenCode plugin that automatically nudges the AI to continue work after a
 session has been idle for 5 minutes.
 
+## Why
+
+Especially in long-lasting agent harnesses and non-interactive sessions unforeseen interruptions can happen due to permission requests, failing subprocesses, hickups. To remind the agent to continue working it has to be nudged gently.
+
 ## What it does
 
 When you are using OpenCode interactively and the AI finishes a task, it is easy
