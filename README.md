@@ -23,13 +23,7 @@ The AI can then decide to resume interrupted work or conclude that everything is
 
 ## Getting started
 
-```bash
-git clone https://github.com/tbrandenburg/opencode-nudge.git
-cd opencode-nudge
-make install        # installs dependencies, builds the plugin, and registers git hooks
-```
-
-Then register the plugin in your project's `.opencode/opencode.jsonc`:
+Register the plugin in your project's or global `opencode.jsonc`:
 
 ```jsonc
 {
@@ -38,9 +32,15 @@ Then register the plugin in your project's `.opencode/opencode.jsonc`:
 }
 ```
 
-The path must be absolute.
+More information: https://opencode.ai/docs/en/plugins/
 
 ## Development
+
+```bash
+git clone https://github.com/tbrandenburg/opencode-nudge.git
+cd opencode-nudge
+make install        # installs dependencies, builds the plugin, and registers git hooks
+```
 
 ```bash
 make install        # bun install + build + register git hooks
