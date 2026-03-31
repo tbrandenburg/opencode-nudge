@@ -14,6 +14,8 @@ export function getOrCreateState(sessionID: string): SessionState {
       hourStart: 0,
       lastIdleSeen: 0,
       lastUserMessage: 0,
+      denyCount: 0,
+      lastDenyNudge: 0,
     })
   }
   return sessionStates.get(sessionID)!
