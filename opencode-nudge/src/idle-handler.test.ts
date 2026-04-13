@@ -102,6 +102,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
 // ─── single-phase path (lastUserMessage recorded via handleUserMessage) ────
 
 describe("handleIdleEvent — single-phase (lastUserMessage known)", () => {
+  isolateThresholdEnv()
   beforeEach(() => sessionStates.clear())
 
   it("does not prompt if threshold not yet elapsed since last user message", async () => {
@@ -152,5 +153,60 @@ describe("handleUserMessage", () => {
     handleUserMessage({ sessionID: "u2" })
     const state = getOrCreateState("u2")
     expect(state.lastUserMessage).toBeGreaterThanOrEqual(before)
+  })
+})
+
+// ─── session.status "busy" as proxy for user message (TUI fix) ──────────────
+
+describe("handleIdleEvent — session.status 'busy' records lastUserMessage", () => {
+  isolateThresholdEnv()
+  beforeEach(() => sessionStates.clear())
+
+  it("does not prompt and does not set lastIdleSeen on session.status busy", async () => {
+    const client = makeClient()
+    await handleIdleEvent(
+      {
+        event: {
+          type: "session.status" as const,
+          properties: { sessionID: "r1", status: { type: "busy" as const } },
+        } as any,
+      },
+      client as any
+    )
+    expect(client.session.promptAsync).not.toHaveBeenCalled()
+    // session.status is not session.idle — idle-handler should do nothing
+    const state = getOrCreateState("r1")
+    expect(state.lastUserMessage).toBe(0)
+    expect(state.lastIdleSeen).toBe(0)
+  })
+
+  it("prompts on first idle event (single-phase) when session.status busy was observed via handleUserMessage", async () => {
+    const promptFn = mock(() => Promise.resolve())
+    const client = makeClient(promptFn)
+
+    // Simulate what index.ts now does: session.status busy → handleUserMessage
+    handleUserMessage({ sessionID: "r2" })
+    const state = getOrCreateState("r2")
+    // Backdate past threshold to simulate time elapsed
+    state.lastUserMessage = Date.now() - getIdleThreshold() - 1000
+
+    // First idle event — should trigger immediately (single-phase path)
+    await handleIdleEvent(idleEvent("r2"), client as any)
+    expect(promptFn).toHaveBeenCalledTimes(1)
+    expect(state.lastIdleSeen).toBe(0) // two-phase branch never taken
+  })
+
+  it("does not enter two-phase fallback when lastUserMessage is set", async () => {
+    const client = makeClient()
+
+    // session.status busy → handleUserMessage
+    handleUserMessage({ sessionID: "r3" })
+    const state = getOrCreateState("r3")
+
+    // First idle event (threshold not yet elapsed)
+    await handleIdleEvent(idleEvent("r3"), client as any)
+    // Two-phase branch must NOT have been taken — lastIdleSeen stays 0
+    expect(state.lastIdleSeen).toBe(0)
+    expect(client.session.promptAsync).not.toHaveBeenCalled()
   })
 })
