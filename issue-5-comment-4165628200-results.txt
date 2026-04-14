@@ -1,0 +1,1 @@
+Now I understand the codebase. Let me implement the sandbox-awareness feature.
