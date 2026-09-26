@@ -1,24 +1,29 @@
-import type { Event } from "@opencode-ai/sdk"
-import type { PluginInput } from "@opencode-ai/plugin"
 import {
   getIdleThreshold,
   CONTINUE_PROMPT,
 } from "./types.js"
 import { getOrCreateState, canContinue, recordContinuation } from "./throttle.js"
+import type { OpenCodeEvent } from "@opencode/client"
 
-type Client = PluginInput["client"]
+export type SendPrompt = (input: { sessionID: string; text: string }) => Promise<unknown>
 
-function log(client: Client, level: "debug" | "info" | "warn" | "error", message: string, extra?: Record<string, unknown>): void {
-  client.app.log({ body: { service: "opencode-nudge", level, message, extra } })
+function log(level: "debug" | "info" | "warn" | "error", message: string, extra?: Record<string, unknown>): void {
+  console[level](`[opencode-nudge] ${message}`, extra ?? {})
 }
 
 export async function handleIdleEvent(
-  { event }: { event: Event },
-  client: Client
+  { event }: { event: OpenCodeEvent },
+  sendPrompt: SendPrompt
 ): Promise<void> {
   if (event.type !== "session.idle") return
 
-  const sessionID = event.properties.sessionID
+  await handleIdleSession({ sessionID: event.data.sessionID }, sendPrompt)
+}
+
+export async function handleIdleSession(
+  { sessionID }: { sessionID: string },
+  sendPrompt: SendPrompt
+): Promise<void> {
   const state = getOrCreateState(sessionID)
   const now = Date.now()
 
@@ -28,33 +33,30 @@ export async function handleIdleEvent(
   // idle event separated by at least IDLE_THRESHOLD from the first.
   if (state.lastUserMessage > 0) {
     if (now - state.lastUserMessage < getIdleThreshold()) {
-      log(client, "debug", "idle detected, waiting for threshold", { sessionID })
+      log("debug", "idle detected, waiting for threshold", { sessionID })
       return
     }
   } else {
     if (state.lastIdleSeen === 0) {
       state.lastIdleSeen = now
-      log(client, "debug", "idle detected, waiting for threshold", { sessionID })
+      log("debug", "idle detected, waiting for threshold", { sessionID })
       return
     }
     if (now - state.lastIdleSeen < getIdleThreshold()) return
   }
 
   if (!canContinue(state, now)) {
-    log(client, "debug", "idle threshold reached but throttled", { sessionID })
+    log("debug", "idle threshold reached but throttled", { sessionID })
     return
   }
 
   try {
-    await client.session.promptAsync({
-      path: { id: sessionID },
-      body: { parts: [{ type: "text", text: CONTINUE_PROMPT }] },
-    })
+    await sendPrompt({ sessionID, text: CONTINUE_PROMPT })
     recordContinuation(state, now)
     state.lastIdleSeen = 0
-    log(client, "info", "continuation prompt injected", { sessionID })
+    log("info", "continuation prompt injected", { sessionID })
   } catch (err) {
-    log(client, "error", "failed to inject continuation prompt", { sessionID, err: String(err) })
+    log("error", "failed to inject continuation prompt", { sessionID, err: String(err) })
   }
 }
 

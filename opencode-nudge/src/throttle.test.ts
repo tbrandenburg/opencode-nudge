@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "bun:test"
-import { canContinue, recordContinuation, getOrCreateState } from "./throttle.js"
+import { canContinue, getNextContinuationDelay, recordContinuation, getOrCreateState } from "./throttle.js"
 import { sessionStates, COOLDOWN_PERIOD, MAX_HOURLY_CONTINUES, ONE_HOUR } from "./types.js"
 import type { SessionState } from "./types.js"
 
@@ -58,5 +58,29 @@ describe("getOrCreateState", () => {
     const s1 = getOrCreateState("session-x")
     const s2 = getOrCreateState("session-x")
     expect(s1).toBe(s2)
+  })
+})
+
+describe("getNextContinuationDelay", () => {
+  let state: SessionState
+
+  beforeEach(() => {
+    sessionStates.clear()
+    state = getOrCreateState("delay-session")
+  })
+
+  it("waits for cooldown to expire", () => {
+    const now = 1_000_000
+    recordContinuation(state, now)
+    expect(getNextContinuationDelay(state, now + 1_000)).toBe(COOLDOWN_PERIOD - 1_000)
+  })
+
+  it("waits for the hourly window when its cap is reached", () => {
+    const now = 1_000_000
+    for (let count = 0; count < MAX_HOURLY_CONTINUES; count++) {
+      recordContinuation(state, now + count * COOLDOWN_PERIOD)
+    }
+    const checkAt = now + MAX_HOURLY_CONTINUES * COOLDOWN_PERIOD
+    expect(getNextContinuationDelay(state, checkAt)).toBe(ONE_HOUR - (checkAt - now))
   })
 })

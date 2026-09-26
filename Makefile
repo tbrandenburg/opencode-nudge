@@ -21,10 +21,10 @@ typecheck:
 	cd $(PLUGIN_DIR) && bunx tsc --noEmit
 
 test:
-	cd $(PLUGIN_DIR) && bun test src/throttle.test.ts src/idle-handler.test.ts
+	cd $(PLUGIN_DIR) && bun test src/throttle.test.ts src/idle-handler.test.ts src/deny-handler.test.ts
 
-# Must be run from repo root: createOpencode() inherits cwd to load .opencode/opencode.jsonc
-test-e2e:
+# Must run from the repo root: the test launches OpenCode v2 with the built plugin.
+test-e2e: build
 	cd $(PLUGIN_DIR) && bun test src/e2e.test.ts
 
 lint: typecheck

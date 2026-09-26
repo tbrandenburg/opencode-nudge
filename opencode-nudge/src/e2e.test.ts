@@ -1,121 +1,145 @@
-/**
- * E2E test for the opencode-nudge plugin.
- *
- * What this test validates (all five E2E conditions):
- *
- *   1. Real system running    — createOpencode() spawns a genuine opencode serve
- *                               process; the project .opencode/opencode.jsonc is
- *                               loaded, registering this plugin automatically.
- *   2. Real entry point       — the triggering condition (session going idle after
- *                               the AI responds) happens naturally inside the
- *                               running server; nothing is injected mid-stack.
- *   3. Full code path         — the plugin's handleIdleEvent → promptAsync path
- *                               is exercised; confirmed by the continuation prompt
- *                               appearing as a user message in the SSE event stream.
- *   4. No layer substituted   — every layer runs in the same process; no REST
- *                               call manually simulates any step.
- *   5. Side-effect verified   — the continuation message part appearing in the
- *                               event stream is the external confirmation that
- *                               OpenCode accepted the async prompt injection
- *                               (204 No Content) and relayed it to the session.
- *
- * Requires:
- *   - `opencode` binary in PATH
- *   - A configured AI provider (if absent the test fails loudly — correct and
- *     expected; the environment is not ready for E2E testing)
- *
- * OPENCODE_IDLE_THRESHOLD_MS is set to 0 ms so the continuation fires on the
- * first idle event that follows the initial AI response.
- */
-
-import { describe, it, expect, afterAll } from "bun:test"
-import { createOpencode } from "@opencode-ai/sdk"
+import { afterAll, describe, expect, it } from "bun:test"
+import { OpenCode } from "@opencode/client"
+import { spawn, type ChildProcess } from "node:child_process"
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join, resolve } from "node:path"
+import { once } from "node:events"
 import { CONTINUE_PROMPT } from "./types.js"
 
-// The server process inherits process.env, so setting this here propagates
-// the override into the opencode server and therefore into the plugin.
-process.env["OPENCODE_IDLE_THRESHOLD_MS"] = "0"
+const E2E_TIMEOUT_MS = Number(process.env["OPENCODE_NUDGE_E2E_TIMEOUT_MS"] ?? 90_000)
+const serverChildren: ChildProcess[] = []
+const tempDirs: string[] = []
 
-// 60 s: server start + plugin load + AI response + idle event + continuation injection.
-// We only need to observe the injection, not wait for the second AI response to complete.
-const E2E_TIMEOUT_MS = 60_000
+afterAll(async () => {
+  for (const child of serverChildren) {
+    if (child.exitCode !== null || child.signalCode !== null) continue
+    child.kill("SIGTERM")
+    await once(child, "exit")
+  }
+  await Promise.all(tempDirs.map((directory) => rm(directory, { recursive: true, force: true })))
+})
 
-let opencode: Awaited<ReturnType<typeof createOpencode>>
-
-describe("opencode-nudge plugin — E2E", () => {
-  afterAll(() => {
-    opencode?.server.close()
-  })
-
+describe("opencode-nudge v2 plugin — E2E", () => {
   it(
-    "injects a continuation prompt after the AI responds to an initial message",
+    "injects a continuation prompt after a real v2 session becomes idle",
     async () => {
-      // ── 1. Start a real opencode server (picks up .opencode/opencode.jsonc) ──
-      // process.cwd() must be PROJECT_ROOT when the test runs (make test-e2e
-      // sets cwd correctly; the server inherits it and loads the project config).
-      opencode = await createOpencode({
-        timeout: 15_000,
+      const executable = process.env["OPENCODE_BIN"] ?? "opencode"
+      const runtime = await Bun.$`${executable} --version`.quiet()
+      const version = runtime.stdout.toString().trim()
+      expect(version).toMatch(/^opencode v2\./)
+
+      const directory = await mkdtemp(join(tmpdir(), "opencode-nudge-v2-e2e-"))
+      tempDirs.push(directory)
+      const port = await getFreePort()
+      const baseUrl = `http://127.0.0.1:${port}`
+      const serverPassword = "opencode-nudge-e2e-only"
+      const localPlugins = join(directory, ".opencode", "plugins")
+      await mkdir(localPlugins, { recursive: true })
+      await symlink(resolve(process.cwd(), "dist/index.js"), join(localPlugins, "opencode-nudge.js"))
+      await writeFile(
+        join(directory, "opencode.json"),
+        JSON.stringify({
+          "$schema": "https://opencode.ai/config.json",
+          model: "opencode/big-pickle",
+        }),
+      )
+
+      const child = spawn(executable, ["serve", "--hostname", "127.0.0.1", "--port", String(port), "--print-logs"], {
+        cwd: directory,
+        env: {
+          ...process.env,
+          HOME: directory,
+          XDG_CONFIG_HOME: join(directory, "config"),
+          XDG_DATA_HOME: join(directory, "data"),
+          OPENCODE_IDLE_THRESHOLD_MS: "0",
+          OPENCODE_SERVER_PASSWORD: serverPassword,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
       })
-      const { client } = opencode
+      serverChildren.push(child)
+      const output: string[] = []
+      child.stdout?.on("data", (chunk: Buffer) => output.push(chunk.toString()))
+      child.stderr?.on("data", (chunk: Buffer) => output.push(chunk.toString()))
 
-      // ── 2. Create a session ──────────────────────────────────────────────────
-      const sessionResp = await client.session.create({ body: {} })
-      const sessionID = sessionResp.data!.id
-
-      // ── 3. Open the event stream before sending the prompt ───────────────────
-      // Subscribe before prompt so we do not miss the first idle event.
-      const events = await client.event.subscribe()
-
-      // ── 4. Send the initial prompt — do not await; watch events concurrently ──
-      // Awaiting first would eat into the timeout budget before we can observe
-      // the continuation injection.
-      client.session.prompt({
-        path: { id: sessionID },
-        body: {
-          parts: [{ type: "text", text: "say the word OK and nothing else" }],
+      const client = OpenCode.make({
+        baseUrl,
+        headers: {
+          authorization: `Basic ${Buffer.from(`opencode:${serverPassword}`).toString("base64")}`,
         },
       })
-
-      // ── 5. Wait for the continuation prompt to be injected ───────────────────
-      // The sequence is:
-      //   a) first AI response → server emits session.status idle + session.idle
-      //   b) plugin calls promptAsync with CONTINUE_PROMPT
-      //   c) server creates a new user message with CONTINUE_PROMPT text
-      //      → server emits message.part.updated with the continuation text
-      //
-      // Asserting on the message.part.updated event with CONTINUE_PROMPT text
-      // proves: plugin loaded + handleIdleEvent ran + promptAsync called.
-      // This does NOT require waiting for the second AI response to complete,
-      // making the assertion fast and reliable regardless of AI response time.
-      let continuationInjected = false
-
-      for await (const event of events.stream) {
-        if (event.type === "message.part.updated") {
-          const part = event.properties.part
+      await waitForServer(baseUrl, child)
+      const session = await client.session.create({})
+      const sessionID = session.id
+      const controller = new AbortController()
+      const events = client.event.subscribe({ signal: controller.signal })
+      const eventReader = (async () => {
+        for await (const event of events) {
           if (
-            "text" in part &&
-            typeof part.text === "string" &&
-            part.text.includes(CONTINUE_PROMPT)
+            event.type === "session.inbox.enqueued" &&
+            event.data.sessionID === sessionID &&
+            event.data.item.type === "user" &&
+            event.data.item.payload.text === CONTINUE_PROMPT
           ) {
-            continuationInjected = true
-            break
+            return true
           }
         }
+        return false
+      })().catch((error: unknown) => {
+        if (controller.signal.aborted) return false
+        throw error
+      })
+      await Bun.sleep(200)
+      try {
+        await client.session.prompt({ sessionID, text: "Reply with exactly: READY" })
+        const found = await withTimeout(eventReader, E2E_TIMEOUT_MS)
+        expect(found).toBe(true)
+      } catch (error) {
+        throw new Error(`${String(error)}\nOpenCode server output:\n${output.join("")}`)
+      } finally {
+        controller.abort()
       }
-
-      expect(
-        continuationInjected,
-        [
-          "Continuation prompt was never injected as a user message.",
-          "Possible causes:",
-          "  • No AI provider configured (set one up before running E2E tests)",
-          "  • Plugin was not loaded — check .opencode/opencode.jsonc registration",
-          "  • chat.message hook did not fire — lastUserMessage was never recorded",
-          "  • throttle blocked the continuation (check hourly cap / cooldown)",
-          "  • promptAsync threw an error inside the plugin",
-        ].join("\n")
-      ).toBe(true)
     },
-    E2E_TIMEOUT_MS
+    E2E_TIMEOUT_MS + 15_000,
   )
 })
+
+async function getFreePort(): Promise<number> {
+  const server = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: { data() {} } })
+  const port = server.port
+  server.stop(true)
+  return port
+}
+
+async function waitForServer(baseUrl: string, child: ChildProcess): Promise<void> {
+  const deadline = Date.now() + 15_000
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) throw new Error(`OpenCode server exited with ${child.exitCode}`)
+    try {
+      const response = await fetch(`${baseUrl}/global/health`)
+      if (response.ok) return
+    } catch {
+      await Bun.sleep(100)
+    }
+  }
+  throw new Error("Timed out waiting for OpenCode v2 server")
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Timed out after ${timeoutMs}ms waiting for continuation prompt`)),
+      timeoutMs,
+    )
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error: unknown) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}

@@ -34,6 +34,18 @@ export function canContinue(state: SessionState, now: number): boolean {
   return true
 }
 
+export function getNextContinuationDelay(state: SessionState, now: number): number {
+  const cooldownRemaining = state.lastContinuation > 0
+    ? Math.max(0, COOLDOWN_PERIOD - (now - state.lastContinuation))
+    : 0
+  const hourlyWindowActive = state.hourStart > 0 && now - state.hourStart < ONE_HOUR
+  const hourlyRemaining = hourlyWindowActive && state.hourlyCount >= MAX_HOURLY_CONTINUES
+    ? ONE_HOUR - (now - state.hourStart)
+    : 0
+
+  return Math.max(cooldownRemaining, hourlyRemaining)
+}
+
 export function recordContinuation(state: SessionState, now: number): void {
   state.lastContinuation = now
   // Reset hourly window if expired

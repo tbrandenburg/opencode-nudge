@@ -1,7 +1,28 @@
 {
   "name": "opencode-nudge",
-  "version": "0.3.0",
+  "version": "0.4.0",
+  "main": "./dist/index.js",
+  "dependencies": {
+    "@opencode/client": "2.0.18",
+    "@opencode/plugin": "2.0.18"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.0",
+    "@types/node": "^22.0.0",
+    "bun": "^1.3.11",
+    "bun-types": "^1.3.11",
+    "typescript": "^5.8.2"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "description": "OpenCode plugin that automatically sends a continue prompt when a session goes idle",
+  "files": [
+    "dist"
+  ],
   "keywords": [
     "opencode",
     "opencode-plugin",
@@ -9,35 +30,13 @@
     "plugin"
   ],
   "license": "MIT",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
-  "files": [
-    "dist"
-  ],
   "scripts": {
     "build": "bunx tsc -p tsconfig.build.json",
     "prepublishOnly": "bun run build",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test src/throttle.test.ts src/idle-handler.test.ts src/deny-handler.test.ts",
+    "test:e2e": "bun run build && bun test src/e2e.test.ts"
   },
-  "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.3.0"
-  },
-  "devDependencies": {
-    "@opencode-ai/plugin": "1.3.3",
-    "@opencode-ai/sdk": "^1.3.6",
-    "@tsconfig/node22": "^22.0.0",
-    "@types/node": "^22.0.0",
-    "bun": "^1.3.11",
-    "bun-types": "^1.3.11",
-    "typescript": "^5.8.2"
-  }
+  "type": "module",
+  "types": "./dist/index.d.ts"
 }

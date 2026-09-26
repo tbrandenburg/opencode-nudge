@@ -2,13 +2,14 @@ import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test"
 import { handleIdleEvent, handleUserMessage } from "./idle-handler.js"
 import { sessionStates, getIdleThreshold } from "./types.js"
 import { getOrCreateState } from "./throttle.js"
+import type { OpenCodeEvent } from "@opencode/client"
 
-// Minimal mock client — only the methods we use
-function makeClient(promptFn = mock(() => Promise.resolve())) {
-  return {
-    app: { log: mock(() => undefined) },
-    session: { promptAsync: promptFn },
-  } as any
+type PromptRequest = { sessionID: string; text: string }
+
+function makeClient(promptFn = mock((_input: PromptRequest) => Promise.resolve())) {
+  return Object.assign((input: PromptRequest) => promptFn(input), {
+    session: { prompt: promptFn },
+  })
 }
 
 // Ensure unit tests are not affected by OPENCODE_IDLE_THRESHOLD_MS set in the
@@ -29,7 +30,7 @@ function isolateThresholdEnv() {
 }
 
 const idleEvent = (sessionID: string) => ({
-  event: { type: "session.idle" as const, properties: { sessionID } },
+  event: { id: "event-1", created: Date.now(), type: "session.idle" as const, data: { sessionID } } as OpenCodeEvent,
 })
 
 // ─── two-phase path (no lastUserMessage recorded) ──────────────────────────
@@ -44,13 +45,13 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
       { event: { type: "session.status", properties: { sessionID: "s1", status: { type: "idle" } } } as any },
       client as any
     )
-    expect(client.session.promptAsync).not.toHaveBeenCalled()
+    expect(client.session.prompt).not.toHaveBeenCalled()
   })
 
   it("records lastIdleSeen on first idle event and does not prompt yet", async () => {
     const client = makeClient()
     await handleIdleEvent(idleEvent("s1"), client as any)
-    expect(client.session.promptAsync).not.toHaveBeenCalled()
+    expect(client.session.prompt).not.toHaveBeenCalled()
     const state = getOrCreateState("s1")
     expect(state.lastIdleSeen).toBeGreaterThan(0)
   })
@@ -63,7 +64,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     // Manually backdate by less than threshold
     state.lastIdleSeen = Date.now() - (getIdleThreshold() - 1000)
     await handleIdleEvent(idleEvent("s2"), client as any)
-    expect(client.session.promptAsync).not.toHaveBeenCalled()
+    expect(client.session.prompt).not.toHaveBeenCalled()
   })
 
   it("prompts when idle threshold is exceeded", async () => {
@@ -75,10 +76,10 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     state.lastIdleSeen = Date.now() - getIdleThreshold() - 1000
     await handleIdleEvent(idleEvent("s3"), client as any)
     expect(promptFn).toHaveBeenCalledTimes(1)
-    const calls = promptFn.mock.calls as unknown as Array<[{ path: { id: string }; body: { parts: Array<{ text: string }> } }]>
+    const calls = promptFn.mock.calls as unknown as Array<[PromptRequest]>
     const call = calls[0]![0]!
-    expect(call.path.id).toBe("s3")
-    expect(call.body.parts[0]!.text).toContain("clearly interrupted mid-task")
+    expect(call.sessionID).toBe("s3")
+    expect(call.text).toContain("clearly interrupted mid-task")
   })
 
   it("resets lastIdleSeen to 0 after prompting", async () => {
@@ -90,7 +91,7 @@ describe("handleIdleEvent — two-phase fallback (no lastUserMessage)", () => {
     expect(state.lastIdleSeen).toBe(0)
   })
 
-  it("does not throw when promptAsync rejects", async () => {
+  it("does not throw when the session prompt rejects", async () => {
     const client = makeClient(mock(() => Promise.reject(new Error("network error"))))
     await handleIdleEvent(idleEvent("s5"), client as any)
     const state = getOrCreateState("s5")
@@ -109,7 +110,7 @@ describe("handleIdleEvent — single-phase (lastUserMessage known)", () => {
     const client = makeClient()
     handleUserMessage({ sessionID: "p1" })
     await handleIdleEvent(idleEvent("p1"), client as any)
-    expect(client.session.promptAsync).not.toHaveBeenCalled()
+    expect(client.session.prompt).not.toHaveBeenCalled()
   })
 
   it("prompts on the first idle event when threshold has elapsed since last user message", async () => {
@@ -121,8 +122,8 @@ describe("handleIdleEvent — single-phase (lastUserMessage known)", () => {
     state.lastUserMessage = Date.now() - getIdleThreshold() - 1000
     await handleIdleEvent(idleEvent("p2"), client as any)
     expect(promptFn).toHaveBeenCalledTimes(1)
-    const calls = promptFn.mock.calls as unknown as Array<[{ path: { id: string }; body: { parts: Array<{ text: string }> } }]>
-    expect(calls[0]![0]!.path.id).toBe("p2")
+    const calls = promptFn.mock.calls as unknown as Array<[PromptRequest]>
+    expect(calls[0]![0]!.sessionID).toBe("p2")
   })
 
   it("does not use two-phase lastIdleSeen when lastUserMessage is set", async () => {
@@ -173,7 +174,7 @@ describe("handleIdleEvent — session.status 'busy' records lastUserMessage", ()
       },
       client as any
     )
-    expect(client.session.promptAsync).not.toHaveBeenCalled()
+    expect(client.session.prompt).not.toHaveBeenCalled()
     // session.status is not session.idle — idle-handler should do nothing
     const state = getOrCreateState("r1")
     expect(state.lastUserMessage).toBe(0)
@@ -207,6 +208,6 @@ describe("handleIdleEvent — session.status 'busy' records lastUserMessage", ()
     await handleIdleEvent(idleEvent("r3"), client as any)
     // Two-phase branch must NOT have been taken — lastIdleSeen stays 0
     expect(state.lastIdleSeen).toBe(0)
-    expect(client.session.promptAsync).not.toHaveBeenCalled()
+    expect(client.session.prompt).not.toHaveBeenCalled()
   })
 })

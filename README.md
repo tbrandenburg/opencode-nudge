@@ -27,23 +27,22 @@ The AI can then decide to resume interrupted work or conclude that everything is
 
 ## Getting started
 
-**Version compatibility:** `opencode-nudge@0.3.0` is the last release compatible
-with OpenCode v1. Pin this version if you are using OpenCode v1; future releases
-will target the v2 plugin API.
+**Version compatibility:** `opencode-nudge@0.4.0` targets OpenCode v2. Version
+`0.3.0` is the last release compatible with OpenCode v1; pin it if you are
+staying on v1. Since this is a `0.x` package, `^0.3.0` does not include `0.4.0`.
 
-Register the plugin in your project's or global `opencode.jsonc`. For OpenCode
-v1, pin the package version explicitly:
+Register the plugin in your project's or global `opencode.jsonc`:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-nudge@0.3.0"]
+  "plugins": ["opencode-nudge@0.4.0"]
 }
 ```
 
-For a local build, use the absolute path to `dist/index.js` instead.
+For OpenCode v1, use `"plugin": ["opencode-nudge@0.3.0"]`.
 
-More information: https://opencode.ai/docs/en/plugins/
+More information: https://opencode.ai/v2/docs/plugins
 
 ## Development
 
@@ -58,11 +57,15 @@ make install        # bun install + build + register git hooks
 make build          # compile TypeScript to dist/
 make clean          # remove dist/
 make test           # unit tests (~50 ms)
-make test-e2e       # full E2E against a real OpenCode session (~20 s, requires AI provider)
+make test-e2e       # full E2E against OpenCode v2 and a real model (~90 s max)
 make typecheck      # tsc --noEmit
 make validate       # typecheck + test
 make publish        # interactive: bump version, publish to npm, push tag & GitHub release
 ```
+
+The E2E test requires OpenCode v2 (`@opencode/cli@2`) and uses
+`opencode/big-pickle`. Set `OPENCODE_BIN` to the v2 executable path when it is
+not the default `opencode` on `PATH`.
 
 The pre-push hook runs `make test` and `make test-e2e` automatically before
 every push.
