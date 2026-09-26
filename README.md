@@ -27,14 +27,21 @@ The AI can then decide to resume interrupted work or conclude that everything is
 
 ## Getting started
 
-Register the plugin in your project's or global `opencode.jsonc`:
+**Version compatibility:** `opencode-nudge@0.3.0` is the last release compatible
+with OpenCode v1. Pin this version if you are using OpenCode v1; future releases
+will target the v2 plugin API.
+
+Register the plugin in your project's or global `opencode.jsonc`. For OpenCode
+v1, pin the package version explicitly:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["opencode-nudge"] // Using the npm package, otherwise absolute path to dist/index.js
+  "plugin": ["opencode-nudge@0.3.0"]
 }
 ```
+
+For a local build, use the absolute path to `dist/index.js` instead.
 
 More information: https://opencode.ai/docs/en/plugins/
 
